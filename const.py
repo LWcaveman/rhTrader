@@ -1,6 +1,5 @@
-
 # ==========================================
-# EXPANDED LIQUID WATCHLIST (~45 TICKERS)
+# EXPANDED LIQUID WATCHLIST (69 TICKERS)
 # ==========================================
 WATCHLIST = [
     # --- Broad Market & Sector ETFs ---
@@ -8,14 +7,14 @@ WATCHLIST = [
     "SPLG",
     "QQQ",
     "IWM",
-    "DIA",  # Core Indexes
+    "DIA",  # Major Market Indexes
     "SMH",
     "XLK",
     "XLF",
     "XLY",
     "XLI",
     "XLV",
-    "XLE",  # Major Sectors
+    "XLE",  # Core Sector SPDRs
     # --- Mega-Cap & Enterprise Tech ---
     "AAPL",
     "MSFT",
@@ -31,6 +30,10 @@ WATCHLIST = [
     "ADBE",
     "CSCO",
     "IBM",
+    # --- Cloud & Cybersecurity Leaders ---
+    "NOW",
+    "PANW",
+    "CRWD",
     # --- Semiconductors & Hardware ---
     "AMD",
     "QCOM",
@@ -38,30 +41,43 @@ WATCHLIST = [
     "AMAT",
     "LRCX",
     "MU",
-    # --- Financials & Payment Networks ---
+    # --- Financials, Insurance & Networks ---
     "JPM",
     "BAC",
     "GS",
     "MS",
+    "BLK",
+    "PGR",
+    "AXP",
     "V",
     "MA",
     # --- Consumer & Retail Leaders ---
     "COST",
     "WMT",
     "HD",
+    "LOW",
+    "TGT",
+    "TJX",
     "MCD",
     "SBUX",
     "NKE",
-    # --- Healthcare & Industrial Titans ---
+    # --- Healthcare, Pharma & MedTech ---
     "LLY",
     "UNH",
     "JNJ",
     "ABBV",
+    "TMO",
+    "ISRG",
+    "MDT",
+    # --- Aerospace, Defense & Industrials ---
     "CAT",
     "GE",
     "HON",
-    # --- Energy & Commodity Leaders ---
+    "RTX",
+    "LMT",
+    # --- Energy, Commodities & Materials ---
     "XOM",
     "CVX",
     "COP",
+    "LIN",
 ]
