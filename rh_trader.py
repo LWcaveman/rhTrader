@@ -1,25 +1,11 @@
 from datetime import datetime
 import pandas as pd
+from reporter import log_alerts_to_csv
 import requests
 import yfinance as yf
 from const import WATCHLIST
 
-# ==========================================
-# CONFIGURATION & STRATEGY PARAMETERS
-# ==========================================
-# WATCHLIST = [
-#     "AAPL",
-#     "MSFT",
-#     "GOOGL",
-#     "AMZN",
-#     "META",
-#     "SPY",
-#     "SPLG",
-#     "QQQ",
-#     "XLF",
-# ]
-
-ACCOUNT_BALANCE = 250.00  # Update with your active cash balance
+ACCOUNT_BALANCE = 250.00  # Update with your active balance
 RISK_BUDGET = 0.02  # 2.0% risk per trade ($5.00 on $250)
 MAX_EXTENSION_PCT = 0.015  # Max 1.5% extension above moving average
 MAX_STOP_WIDTH_PCT = 0.030  # Max 3.0% stop distance ($1R)
@@ -35,10 +21,12 @@ def scan_swing_setups(watchlist, balance):
         )
     })
 
-    print("Fetching 2-year daily data for watchlist...")
+    print(
+        f"Fetching 2-year daily data for {len(watchlist)} watchlist tickers..."
+    )
     data = yf.download(
         tickers=watchlist,
-        period="2y",  # 2 years provides complete data for 200 SMA calculations
+        period="2y",
         interval="1d",
         group_by="ticker",
         auto_adjust=False,
@@ -50,7 +38,6 @@ def scan_swing_setups(watchlist, balance):
 
     for ticker in watchlist:
         try:
-            # Handle single vs multi-ticker DataFrame structures
             df = (
                 data[ticker].dropna().copy()
                 if len(watchlist) > 1
@@ -83,10 +70,10 @@ def scan_swing_setups(watchlist, balance):
             sma200 = float(today["200_SMA"])
             prev_sma50 = float(prev["50_SMA"])
 
-            # 1. Macro Trend Filter: Bullish moving average stack with rising 50 SMA
+            # 1. Macro Trend Filter: Rising moving averages
             is_uptrend = (close > sma50 > sma200) and (sma50 >= prev_sma50)
 
-            # 2. Retest Condition (Checked across Today OR Yesterday)
+            # 2. Retest Condition (Today OR Yesterday)
             touched_20_today = low <= (ema20 * 1.005) and close >= (
                 ema20 * 0.99
             )
@@ -101,17 +88,13 @@ def scan_swing_setups(watchlist, balance):
             retested_support = retesting_20 or retesting_50
 
             # 3. Confirmation Triggers
-            # Trigger A: Breakout above prior day's high
             breakout_trigger = close > prev_high
-
-            # Trigger B: Valid Bullish Engulfing
             is_engulfing = (
                 prev_close < prev_open
                 and open_p <= prev_close
                 and close > prev_open
             )
 
-            # Trigger C: Valid Bullish Hammer (Long lower shadow, negligible upper wick)
             body = abs(close - open_p)
             lower_wick = min(open_p, close) - low
             upper_wick = high - max(open_p, close)
@@ -125,17 +108,17 @@ def scan_swing_setups(watchlist, balance):
             if is_uptrend and retested_support and triggered:
                 active_ma = ema20 if retesting_20 else sma50
 
-                # Anti-Chase Guard: Reject if extended > 1.5% past support MA
+                # Anti-Chase Guard
                 extension = (close - active_ma) / active_ma
                 if extension > MAX_EXTENSION_PCT:
                     continue
 
-                # Structural Stop Placement: 0.5% below the 2-day swing low
+                # Structural Stop Placement (0.5% below the 2-day low)
                 swing_low = min(low, prev_low)
                 stop_loss = round(swing_low * 0.995, 2)
                 risk_per_share = round(close - stop_loss, 2)
 
-                # Stop Width Guard: Ensure risk distance is neither inverted nor bloated (> 3%)
+                # Stop Width Guard
                 stop_width = risk_per_share / close
                 if stop_width <= 0 or stop_width > MAX_STOP_WIDTH_PCT:
                     continue
@@ -145,7 +128,6 @@ def scan_swing_setups(watchlist, balance):
                 ideal_shares = max_risk_dollars / risk_per_share
                 ideal_capital = ideal_shares * close
 
-                # Cap sizing to available cash collateral
                 if ideal_capital > balance:
                     shares = round(balance / close, 4)
                     actual_capital = round(shares * close, 2)
@@ -155,7 +137,7 @@ def scan_swing_setups(watchlist, balance):
                     actual_capital = round(ideal_capital, 2)
                     actual_risk_dollars = round(max_risk_dollars, 2)
 
-                # Reward Milestones
+                # Payoff Milestones
                 r1_breakeven = round(close + risk_per_share, 2)
                 r2_target = round(close + (2 * risk_per_share), 2)
                 r3_target = round(close + (3 * risk_per_share), 2)
@@ -184,5 +166,9 @@ if __name__ == "__main__":
         df_results = pd.DataFrame(results)
         print("\n=== ACTIVE SWING TRADE ALERTS ===")
         print(df_results.to_string(index=False))
+        print()
+
+        # Log results to CSV
+        log_alerts_to_csv(results)
     else:
         print("\nNo valid swing pullbacks triggered today.")
