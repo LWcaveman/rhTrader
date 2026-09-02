@@ -5,7 +5,7 @@ import requests
 import yfinance as yf
 from const import WATCHLIST
 
-ACCOUNT_BALANCE = 250.00  # Update with your active balance
+ACCOUNT_BALANCE = 30.00  # Update with your active balance
 RISK_BUDGET = 0.02  # 2.0% risk per trade ($5.00 on $250)
 MAX_EXTENSION_PCT = 0.015  # Max 1.5% extension above moving average
 MAX_STOP_WIDTH_PCT = 0.030  # Max 3.0% stop distance ($1R)
