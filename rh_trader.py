@@ -170,5 +170,9 @@ if __name__ == "__main__":
 
         # Log results to CSV
         log_alerts_to_csv(results)
+
+        # Check active positions
+        # print("\nChecking active positions...")
+        # check_active_positions(include_paper=False)
     else:
         print("\nNo valid swing pullbacks triggered today.")
