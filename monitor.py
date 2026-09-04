@@ -2,6 +2,44 @@ from datetime import datetime
 from pathlib import Path
 import pandas as pd
 import yfinance as yf
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+import requests
+
+load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env")
+DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
+
+
+def send_discord_alert(ticker: str, action: str, price: float, urgency: str):
+    """Sends a color-coded mobile alert to your Discord channel."""
+    if not DISCORD_WEBHOOK_URL:
+        return
+
+    # Color codes: Red for stop, Green for targets, Yellow for breakeven/warning
+    color_map = {
+        "CRITICAL": 15158332,  # Red
+        "TAKE_PROFIT": 3066993,  # Green
+        "ADJUST_STOP": 15844355,  # Yellow/Gold
+        "INFO": 3447003,  # Blue
+    }
+
+    embed = {
+        "title": f"🚨 {ticker} Trade Alert: {urgency}",
+        "description": action,
+        "color": color_map.get(urgency, 3447003),
+        "fields": [{"name": "Current Price", "value": f"${price:.2f}", "inline": True}],
+        "footer": {"text": "rhTrader Automated Monitor"},
+    }
+
+    try:
+        requests.post(
+            DISCORD_WEBHOOK_URL,
+            json={"username": "rhTrader Bot", "embeds": [embed]},
+            timeout=5,
+        )
+    except Exception as e:
+        print(f"[Discord Error] Could not send alert: {e}")
 
 
 def parse_currency(val) -> float:
@@ -135,15 +173,19 @@ def check_active_positions(
         if current_price <= stop:
             action = f"🚨 STOP HIT: Price (${current_price:.2f}) dropped to or below Stop (${stop:.2f}). Close position."
             urgency = "CRITICAL"
+            send_discord_alert(ticker, action, current_price, urgency)
         elif current_price >= r3_runner and r3_runner > 0:
             action = f"🎯 3R RUNNER REACHED: Price (${current_price:.2f}) hit Runner target (${r3_runner:.2f}). Lock in remaining profits."
             urgency = "TAKE_PROFIT"
+            send_discord_alert(ticker, action, current_price, urgency)
         elif current_price >= r2_target and r2_target > 0:
             action = f"🎯 2R TARGET REACHED: Price (${current_price:.2f}) hit Profit Target (${r2_target:.2f}). Sell 75% and trail stop."
             urgency = "TAKE_PROFIT"
+            send_discord_alert(ticker, action, current_price, urgency)
         elif current_price >= r1_be and r1_be > 0:
             action = f"🛡️ 1R BREAKEVEN HIT: Price (${current_price:.2f}) passed +1R (${r1_be:.2f}). MOVE STOP TO BREAKEVEN (${entry:.2f})."
             urgency = "ADJUST_STOP"
+            send_discord_alert(ticker, action, current_price, urgency)
         else:
             action = f"Holding in range. Buffer to Stop: -${round(current_price - stop, 2):.2f} | Distance to +1R: +${round(r1_be - current_price, 2):.2f}"
 

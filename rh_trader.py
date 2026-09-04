@@ -5,6 +5,8 @@ import const
 from reporter import log_alerts_to_csv
 from rh_client import get_robinhood_balances
 import yfinance as yf
+from pathlib import Path
+import pandas as pd
 
 
 def calculate_position_size(
@@ -29,7 +31,7 @@ def calculate_position_size(
     # At or above $100: Split across 2 concurrent positions (50% max allocation each)
     max_allocation_pct = const.MAX_ALLOCATION_PCT_MICO if total_equity < const.ACCOUNT_100 else const.MAX_ALLOCATION_PCT    
     max_capital = round(total_equity * max_allocation_pct, 2)
-    
+
     # 3. Share sizing governed by risk: Shares = Dollar Risk / Stop Distance
     shares_by_risk = dollar_risk / risk_per_share
     required_capital = round(shares_by_risk * entry_price, 2)
@@ -57,6 +59,58 @@ def calculate_position_size(
     }
 
 
+
+def get_active_open_risk(filename: str = "swing_alerts.csv") -> dict:
+    """Reads swing_alerts.csv and calculates active capital deployed
+
+    and open dollar risk for all 'Live' positions.
+    """
+    csv_path = Path(__file__).resolve().parent / filename
+    if not csv_path.exists() or csv_path.stat().st_size == 0:
+        return {"count": 0, "open_risk": 0.0, "tickers": []}
+
+    try:
+        df = pd.read_csv(csv_path)
+        if "Status" not in df.columns or "Ticker" not in df.columns:
+            return {"count": 0, "open_risk": 0.0, "tickers": []}
+
+        live_df = df[df["Status"] == "Live"].copy()
+        if live_df.empty:
+            return {"count": 0, "open_risk": 0.0, "tickers": []}
+
+        total_open_risk = 0.0
+        active_tickers = []
+
+        for _, row in live_df.iterrows():
+            entry_str = str(row.get("Entry", "")).replace("$", "").strip()
+            stop_str = str(row.get("Stop Alert", "")).replace("$", "").strip()
+            shares = float(row.get("Shares", 0.0))
+
+            try:
+                entry = float(entry_str)
+                stop = float(stop_str)
+                # If stop is at or above entry, open downside risk is $0.00
+                risk_per_share = max(0.0, entry - stop)
+                trade_risk = round(risk_per_share * shares, 2)
+            except ValueError:
+                trade_risk = 0.0
+
+            total_open_risk += trade_risk
+            status_note = (
+                "Breakeven ($0.00 risk)"
+                if trade_risk == 0
+                else f"${trade_risk:.2f} risk"
+            )
+            active_tickers.append(f"{row['Ticker']} ({status_note})")
+
+        return {
+            "count": len(live_df),
+            "open_risk": round(total_open_risk, 2),
+            "tickers": active_tickers,
+        }
+    except Exception:
+        return {"count": 0, "open_risk": 0.0, "tickers": []}
+
 def scan_and_evaluate():
     # Fetch live balances via session token
     balances = get_robinhood_balances(
@@ -75,7 +129,7 @@ def scan_and_evaluate():
     )
     print(
         f"Risk Budget (2%): ${total_equity * const.DEFAULT_RISK_PER_TRADE:.2f} |"
-        f" Max Capital per Trade: ${total_equity * const.MAX_ALLOCATION_PCT:.2f}"
+        f" Max Capital per Trade: ${total_equity * const.MAX_ALLOCATION_PCT_MICO if total_equity < const.ACCOUNT_100 else const.MAX_ALLOCATION_PCT :.2f}"
     )
     print("=" * 65)
 
@@ -123,12 +177,31 @@ def scan_and_evaluate():
                 "Notes": note,
             })
 
+    active_info = get_active_open_risk()
+
+    print("\n" + "-" * 65)
+    print("PORTFOLIO EXPOSURE SUMMARY")
+    print("-" * 65)
+    if active_info["count"] > 0:
+        print(
+            f"Active Live Positions ({active_info['count']}):"
+            f" {', '.join(active_info['tickers'])}"
+        )
+        print(f"Total Open Portfolio Risk: ${active_info['open_risk']:.2f}")
+    else:
+        print("Active Live Positions: None")
+        print("Total Open Portfolio Risk: $0.00")
+
     if valid_setups:
-        print(f"\nFound {len(valid_setups)} setup(s). Logging to CSV...")
+        print(
+            f"New Setups Triggered Today: {len(valid_setups)} (Logging to CSV)"
+        )
         log_alerts_to_csv(valid_setups)
     else:
-        print("\nNo setups matched criteria today. Zero capital at risk.")
+        print("New Setups Triggered Today: 0 (No new capital deployed)")
+    print("-" * 65 + "\n")
 
 
 if __name__ == "__main__":
     scan_and_evaluate()
+   
