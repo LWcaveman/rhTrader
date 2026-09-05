@@ -21,6 +21,8 @@ venv.bak/
 secrets.json
 config.json
 
+swing_alerts.csv
+
 # Distribution / Packaging
 build/
 dist/
