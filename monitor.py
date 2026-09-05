@@ -42,6 +42,52 @@ def send_discord_alert(ticker: str, action: str, price: float, urgency: str):
         print(f"[Discord Error] Could not send alert: {e}")
 
 
+def send_setup_alert(setup: dict):
+    """Sends a trade setup recommendation alert to Discord."""
+    if not DISCORD_WEBHOOK_URL:
+        return
+
+    # Green for funded trades ready to take; Gold/Yellow if capital is constrained
+    color = 3066993 if "Funded" in setup.get("Status", "") else 15844355
+
+    fields = [
+        {"name": "Status", "value": setup["Status"], "inline": True},
+        {"name": "Entry", "value": setup["Entry"], "inline": True},
+        {"name": "Stop Alert", "value": setup["Stop Alert"], "inline": True},
+        {"name": "Shares", "value": str(setup["Shares"]), "inline": True},
+        {"name": "Capital", "value": setup["Capital"], "inline": True},
+        {"name": "Risk ($)", "value": setup["Risk ($)"], "inline": True},
+        {
+            "name": "Targets",
+            "value": (
+                f"**+1R (BE):** {setup['Breakeven (+1R)']}\n"
+                f"**+2R Target:** {setup['Target (2R)']}\n"
+                f"**+3R Runner:** {setup['Runner (3R)']}"
+            ),
+            "inline": False,
+        },
+        {"name": "Notes", "value": setup["Notes"], "inline": False},
+    ]
+
+    embed = {
+        "title": f"💡 Setup Alert: {setup['Ticker']}",
+        "description": f"New swing setup identified by scanner criteria.",
+        "color": color,
+        "fields": fields,
+        "footer": {"text": "rhTrader Daily Scanner"},
+        "timestamp": datetime.utcnow().isoformat(),
+    }
+
+    try:
+        requests.post(
+            DISCORD_WEBHOOK_URL,
+            json={"username": "rhTrader Bot", "embeds": [embed]},
+            timeout=5,
+        )
+    except Exception as e:
+        print(f"[Discord Error] Could not send setup alert: {e}")
+
+
 def parse_currency(val) -> float:
     """Safely converts currency strings (e.g.
 

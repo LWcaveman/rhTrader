@@ -40,19 +40,20 @@ def log_alerts_to_csv(alerts: list, filename: str = "swing_alerts.csv") -> None:
     timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     records = []
+  # UPDATED CODE (Preserves scanner values):
     for item in alerts:
         row = item.copy()
-        row["Date"] = today_str
-        row["Logged At"] = timestamp_str
-        row["Status"] = "Suggested"
-        row["Fill Price"] = ""
-        row["Exit Date"] = ""
-        row["Exit Price"] = ""
-        row["Realized R"] = ""
-        row["Notes"] = ""
+        row["Date"] = item.get("Date", today_str)
+        row["Logged At"] = item.get("Logged At", timestamp_str)
+        row["Status"] = item.get("Status", "Suggested")
+        row["Fill Price"] = item.get("Fill Price", "")
+        row["Exit Date"] = item.get("Exit Date", "")
+        row["Exit Price"] = item.get("Exit Price", "")
+        row["Realized R"] = item.get("Realized R", "")
+        row["Notes"] = item.get("Notes", "")
         records.append(row)
 
-    df_new = pd.DataFrame(records)
+        df_new = pd.DataFrame(records)
 
     # Ensure all defined columns exist in incoming alerts
     for col in COLUMNS_ORDER:
